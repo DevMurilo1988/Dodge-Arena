@@ -1,117 +1,146 @@
 import pygame
+import sys
+import time
 import random
-
-# Cores
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-RED = (255, 0, 0)
-BLUE = (0, 0, 255)
-GREEN = (0, 255, 0)
-
-# Configurações da arena
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
-PLAYER_SIZE = 30
-BALL_SIZE = 20
 
 class DodgeArena:
     def __init__(self, screen):
         self.screen = screen
+        self.running = True
         self.clock = pygame.time.Clock()
+        self.start_time = time.time()
+        self.best_time_p1 = 0
+        self.best_time_p2 = 0
+        self.players = [pygame.Rect(200, 300, 30, 30)]
+        self.balls = []
+        self.ball_speed = []
+        self.mode = 1
 
-        # Carregar sons
-        self.collision_sound = pygame.mixer.Sound("assets/collision.wav")
-        self.phase_up_sound = pygame.mixer.Sound("assets/phase_up.wav")
+        # Sons
+        pygame.mixer.init()
+        self.collision_sound = pygame.mixer.Sound('assets/collision.wav')
+        self.phase_up_sound = pygame.mixer.Sound('assets/phase_up.wav')
+        pygame.mixer.music.load('assets/thema.wav')
+        pygame.mixer.music.play(-1)  # Toca em loop
+
+        # Configurações iniciais
+        self.init_balls()
+
+    def init_balls(self):
+        """Inicializa o jogo com uma bola."""
+        self.balls.append(self.create_ball())
+        self.ball_speed.append(self.random_speed())
+
+    def create_ball(self):
+        """Cria uma nova bola em posição aleatória."""
+        return pygame.Rect(random.randint(0, 770), random.randint(0, 570), 20, 20)
+
+    def random_speed(self):
+        """Gera uma velocidade aleatória para a bola."""
+        return [random.choice([-3, 3]), random.choice([-3, 3])]
+
+    def move_balls(self):
+        """Move as bolas e faz com que quique nas bordas."""
+        for i, ball in enumerate(self.balls):
+            ball.x += self.ball_speed[i][0]
+            ball.y += self.ball_speed[i][1]
+
+            if ball.left <= 0 or ball.right >= 800:
+                self.ball_speed[i][0] *= -1
+            if ball.top <= 0 or ball.bottom >= 600:
+                self.ball_speed[i][1] *= -1
+
+    def check_collision(self, player):
+        """Verifica colisão entre o jogador e as bolas."""
+        for ball in self.balls:
+            if player.colliderect(ball):
+                self.collision_sound.play()
+                return True
+        return False
+
+    def add_difficulty(self):
+        """Aumenta a dificuldade ao longo do tempo."""
+        elapsed_time = time.time() - self.start_time
+
+        if len(self.balls) < 10 and elapsed_time // 5 > len(self.balls):  # Adiciona bolas a cada 5 segundos
+            self.balls.append(self.create_ball())
+            self.ball_speed.append(self.random_speed())
+            self.phase_up_sound.play()
 
     def run(self, mode):
-        # Configurações iniciais
-        player1 = pygame.Rect(100, 300, PLAYER_SIZE, PLAYER_SIZE)
-        player2 = pygame.Rect(700, 300, PLAYER_SIZE, PLAYER_SIZE) if mode == "2player" else None
-        balls = [pygame.Rect(random.randint(0, SCREEN_WIDTH - BALL_SIZE),
-                             random.randint(0, SCREEN_HEIGHT - BALL_SIZE),
-                             BALL_SIZE, BALL_SIZE)]
-        ball_speeds = [(random.choice([-5, 5]), random.choice([-5, 5]))]
+        """Loop principal do jogo."""
+        self.mode = mode
+        if mode == 2:
+            self.players.append(pygame.Rect(600, 300, 30, 30))
 
-        player1_alive = True
-        player2_alive = mode == "2player"
-        running = True
-        time_elapsed = 0
-        phase = 1
+        self.running = True
+        while self.running:
+            self.clock.tick(60)
+            self.screen.fill((0, 0, 0))
+            elapsed_time = time.time() - self.start_time
 
-        while running:
-            self.screen.fill(WHITE)
-
-            # Verifica eventos
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    running = False
+                    self.running = False
+                    pygame.quit()
+                    sys.exit()
 
-            # Movimentação do jogador 1 (WASD)
+            # Movimenta os jogadores
             keys = pygame.key.get_pressed()
-            if keys[pygame.K_w] and player1.top > 0:
-                player1.move_ip(0, -5)
-            if keys[pygame.K_s] and player1.bottom < SCREEN_HEIGHT:
-                player1.move_ip(0, 5)
-            if keys[pygame.K_a] and player1.left > 0:
-                player1.move_ip(-5, 0)
-            if keys[pygame.K_d] and player1.right < SCREEN_WIDTH:
-                player1.move_ip(5, 0)
+            if keys[pygame.K_LEFT] and self.players[0].left > 0:
+                self.players[0].x -= 5
+            if keys[pygame.K_RIGHT] and self.players[0].right < 800:
+                self.players[0].x += 5
+            if keys[pygame.K_UP] and self.players[0].top > 0:
+                self.players[0].y -= 5
+            if keys[pygame.K_DOWN] and self.players[0].bottom < 600:
+                self.players[0].y += 5
 
-            # Movimentação do jogador 2 (Setas)
-            if mode == "2player" and player2_alive:
-                if keys[pygame.K_UP] and player2.top > 0:
-                    player2.move_ip(0, -5)
-                if keys[pygame.K_DOWN] and player2.bottom < SCREEN_HEIGHT:
-                    player2.move_ip(0, 5)
-                if keys[pygame.K_LEFT] and player2.left > 0:
-                    player2.move_ip(-5, 0)
-                if keys[pygame.K_RIGHT] and player2.right < SCREEN_WIDTH:
-                    player2.move_ip(5, 0)
+            if mode == 2:
+                if keys[pygame.K_a] and self.players[1].left > 0:
+                    self.players[1].x -= 5
+                if keys[pygame.K_d] and self.players[1].right < 800:
+                    self.players[1].x += 5
+                if keys[pygame.K_w] and self.players[1].top > 0:
+                    self.players[1].y -= 5
+                if keys[pygame.K_s] and self.players[1].bottom < 600:
+                    self.players[1].y += 5
 
-            # Movimentação das bolas
-            for i, ball in enumerate(balls):
-                ball.move_ip(ball_speeds[i])
-                if ball.left <= 0 or ball.right >= SCREEN_WIDTH:
-                    ball_speeds[i] = (-ball_speeds[i][0], ball_speeds[i][1])
-                if ball.top <= 0 or ball.bottom >= SCREEN_HEIGHT:
-                    ball_speeds[i] = (ball_speeds[i][0], -ball_speeds[i][1])
+            # Movimenta as bolas
+            self.move_balls()
 
-                # Colisão com jogadores
-                if player1_alive and ball.colliderect(player1):
-                    player1_alive = False
-                    self.collision_sound.play()  # Toca som de colisão
-                if player2_alive and ball.colliderect(player2):
-                    player2_alive = False
-                    self.collision_sound.play()
+            # Verifica colisões
+            for i, player in enumerate(self.players):
+                if self.check_collision(player):
+                    self.running = False
+                    if i == 0:
+                        self.best_time_p1 = max(self.best_time_p1, elapsed_time)
+                    elif mode == 2:
+                        self.best_time_p2 = max(self.best_time_p2, elapsed_time)
+                    return
 
-            # Atualiza tela
-            pygame.draw.rect(self.screen, BLUE, player1)
-            if mode == "2player" and player2_alive:
-                pygame.draw.rect(self.screen, GREEN, player2)
+            # Aumenta a dificuldade
+            self.add_difficulty()
 
-            for ball in balls:
-                pygame.draw.ellipse(self.screen, RED, ball)
+            # Desenha os jogadores e as bolas
+            colors = [(0, 255, 0), (0, 0, 255)]  # Verde e azul
+            for i, player in enumerate(self.players):
+                pygame.draw.rect(self.screen, colors[i], player)
+
+            for ball in self.balls:
+                pygame.draw.ellipse(self.screen, (255, 0, 0), ball)
+
+            # Renderiza o cronômetro
+            font = pygame.font.Font(None, 36)
+            timer_text = font.render(f"Tempo: {elapsed_time:.2f}s", True, (255, 255, 255))
+            self.screen.blit(timer_text, (10, 10))
+            if mode == 2:
+                best_p1 = font.render(f"P1 Melhor: {self.best_time_p1:.2f}s", True, (255, 255, 255))
+                best_p2 = font.render(f"P2 Melhor: {self.best_time_p2:.2f}s", True, (255, 255, 255))
+                self.screen.blit(best_p1, (10, 50))
+                self.screen.blit(best_p2, (10, 90))
+            else:
+                best_p1 = font.render(f"Melhor: {self.best_time_p1:.2f}s", True, (255, 255, 255))
+                self.screen.blit(best_p1, (10, 50))
 
             pygame.display.flip()
-
-            # Checa condições de derrota
-            if not player1_alive and not player2_alive:
-                running = False
-
-            # Atualiza tempo e adiciona bolas em intervalos
-            time_elapsed += self.clock.tick(60)
-            if time_elapsed > 5000:  # A cada 5 segundos
-                time_elapsed = 0
-                balls.append(pygame.Rect(random.randint(0, SCREEN_WIDTH - BALL_SIZE),
-                                         random.randint(0, SCREEN_HEIGHT - BALL_SIZE),
-                                         BALL_SIZE, BALL_SIZE))
-                ball_speeds.append((random.choice([-5, 5]), random.choice([-5, 5])))
-
-                # Aumenta a fase e velocidade
-                phase += 1
-                self.phase_up_sound.play()  # Toca som de fase
-                for i in range(len(ball_speeds)):
-                    ball_speeds[i] = (ball_speeds[i][0] * 1.1, ball_speeds[i][1] * 1.1)  # Acelera bolas
-
-        return {"winner": "player1" if player1_alive else "player2" if player2_alive else "none",
-                "time": pygame.time.get_ticks() // 1000, "phase": phase}

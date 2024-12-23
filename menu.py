@@ -1,51 +1,40 @@
 import pygame
-from game import DodgeArena  # Certifique-se de que o arquivo do jogo se chama game.py
+from game import DodgeArena
 
 class Menu:
     def __init__(self, screen):
-        # Inicializando a tela (screen) passada como argumento
         self.screen = screen
-        self.screen_width = 800
-        self.screen_height = 600
-        self.white = (255, 255, 255)
-        self.black = (0, 0, 0)
+        self.font = pygame.font.Font(None, 36)
+        self.running = True
 
     def show_menu(self):
-        pygame.display.set_caption("Menu - Dodge Arena")
-        font = pygame.font.Font(None, 50)
-        clock = pygame.time.Clock()
+        while self.running:
+            self.screen.fill((0, 0, 0))
 
-        menu_options = ["1 Jogador", "2 Jogadores", "Sair"]
-        selected_option = 0
-        running = True
+            # Renderiza o texto do menu
+            singleplayer_text = self.font.render("1. Pressione '1' para Singleplayer", True, (255, 255, 255))
+            multiplayer_text = self.font.render("2. Pressione '2' para Multiplayer", True, (255, 255, 255))
+            quit_text = self.font.render("Esc: Sair", True, (255, 255, 255))
 
-        while running:
-            self.screen.fill(self.white)
-            for i, option in enumerate(menu_options):
-                color = self.black if i != selected_option else (0, 255, 0)
-                text = font.render(option, True, color)
-                self.screen.blit(text, (self.screen_width // 2 - text.get_width() // 2, 200 + i * 60))
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                    pygame.quit()
-                    return None
-
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_UP:
-                        selected_option = (selected_option - 1) % len(menu_options)
-                    if event.key == pygame.K_DOWN:
-                        selected_option = (selected_option + 1) % len(menu_options)
-                    if event.key == pygame.K_RETURN:
-                        if selected_option == 0:  # 1 Jogador
-                            DodgeArena(self.screen).run("1player")
-                        elif selected_option == 1:  # 2 Jogadores
-                            DodgeArena(self.screen).run("2player")
-                        elif selected_option == 2:  # Sair
-                            running = False
+            self.screen.blit(singleplayer_text, (200, 200))
+            self.screen.blit(multiplayer_text, (200, 250))
+            self.screen.blit(quit_text, (200, 300))
 
             pygame.display.flip()
-            clock.tick(30)
 
-        pygame.quit()
+            # Processa eventos
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_1:  # Inicia o modo singleplayer
+                        self.run_game(1)
+                    elif event.key == pygame.K_2:  # Inicia o modo multiplayer
+                        self.run_game(2)
+                    elif event.key == pygame.K_ESCAPE:  # Sai do menu
+                        self.running = False
+
+    def run_game(self, mode):
+        """Inicia o jogo."""
+        game = DodgeArena(self.screen)
+        game.run(mode)
